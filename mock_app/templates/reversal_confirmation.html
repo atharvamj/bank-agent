@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reversal Confirmed — First National CU</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; }
+    .header { background: #003366; color: #fff; padding: 10px 20px; }
+    .header h1 { margin: 0; font-size: 1.1em; }
+    .content { padding: 30px 20px; }
+    .confirm-box { background: #fff; border: 2px solid #2a7a2a; padding: 24px 28px; max-width: 520px; }
+    .confirm-box h2 { color: #2a7a2a; margin-top: 0; }
+    .detail-table { border-collapse: collapse; margin-top: 12px; font-size: 0.9em; }
+    .detail-table td { padding: 4px 16px 4px 0; }
+    .detail-table td:first-child { font-weight: bold; color: #555; width: 140px; }
+    .confirm-stamp { display: inline-block; background: #2a7a2a; color: #fff; padding: 4px 12px; font-size: 0.85em; margin-top: 14px; }
+    .back-link { display: block; margin-top: 18px; font-size: 0.85em; color: #003366; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>First National Credit Union &mdash; Reversal Confirmed</h1>
+  </div>
+  <div class="content">
+    <div class="confirm-box" id="reversal-confirmation">
+      <h2>&#10003; Overdraft Fee Reversed</h2>
+      <table class="detail-table">
+        <tr><td>Account</td><td>{{ account.account_id }}</td></tr>
+        <tr><td>Member</td><td>{{ account.member_name }}</td></tr>
+        <tr><td>Fee Date</td><td>{{ fee.date }}</td></tr>
+        <tr><td>Amount Reversed</td><td>${{ "%.2f"|format(fee.amount) }}</td></tr>
+        <tr><td>New Balance</td><td>${{ "%.2f"|format(account.balance) }}</td></tr>
+      </table>
+      <div class="confirm-stamp" id="confirmation-stamp">REVERSAL COMPLETE</div>
+    </div>
+    <a class="back-link" href="/accounts/{{ account.account_id }}">&larr; Back to Account</a>
+  </div>
+</body>
+</html>

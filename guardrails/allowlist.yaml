@@ -1,0 +1,16 @@
+permitted_domains:
+  - 127.0.0.1
+  # Note: 'localhost' intentionally omitted — on macOS it resolves to IPv6 ::1
+  # while Flask binds to 127.0.0.1 (IPv4). Use 127.0.0.1 explicitly.
+
+permitted_actions:
+  - click
+  - type
+  - wait_for
+  - assert_text
+
+# Routes that should never be visited by the agent
+blocked_routes:
+  - /admin
+  - /debug
+  - /internal

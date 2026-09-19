@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.DS_Store
+*.log
+# Never commit secrets or session state
+escalation/pending/*.json
+# Keep evidence directory but not raw session cookies
+evidence/runs/*/session_*.json

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reversal Error — First National CU</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; }
+    .header { background: #003366; color: #fff; padding: 10px 20px; }
+    .header h1 { margin: 0; font-size: 1.1em; }
+    .content { padding: 24px 20px; }
+    .error-box { background: #fff; border: 2px solid #c00; padding: 20px 24px; max-width: 480px; }
+    .error-box h2 { color: #c00; margin-top: 0; }
+    .detail-table { border-collapse: collapse; font-size: 0.9em; margin-top: 10px; }
+    .detail-table td { padding: 4px 14px 4px 0; }
+    .detail-table td:first-child { font-weight: bold; color: #555; width: 130px; }
+    .msg { background: #fee; border: 1px solid #f99; padding: 8px 12px; font-size: 0.88em; margin-top: 12px; }
+    .back-link { display: block; margin-top: 14px; font-size: 0.85em; color: #003366; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>First National Credit Union &mdash; Reversal Error</h1>
+  </div>
+  <div class="content">
+    <div class="error-box" id="reversal-error">
+      <h2>&#10007; Reversal Not Processed</h2>
+      <table class="detail-table">
+        <tr><td>Account</td><td>{{ account.account_id }}</td></tr>
+        <tr><td>Member</td><td>{{ account.member_name }}</td></tr>
+        <tr><td>Fee Date</td><td>{{ fee.date }}</td></tr>
+      </table>
+      <div class="msg" id="error-message">{{ message }}</div>
+    </div>
+    <a class="back-link" href="/accounts/{{ account.account_id }}">&larr; Back to Account</a>
+  </div>
+</body>
+</html>

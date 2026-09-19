@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Account {{ account.account_id }} — First National CU</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; }
+    .header { background: #003366; color: #fff; padding: 10px 20px; }
+    .header h1 { margin: 0; font-size: 1.1em; }
+    .content { padding: 20px; }
+    .card { background: #fff; border: 1px solid #ccc; padding: 16px 20px; margin-bottom: 16px; }
+    .card h2 { margin: 0 0 12px; color: #003366; font-size: 1em; }
+    /* Info table — nested, no IDs */
+    .info-table { border-collapse: collapse; font-size: 0.9em; }
+    .info-table td { padding: 4px 14px 4px 0; }
+    .info-table td:first-child { font-weight: bold; color: #555; width: 140px; }
+    /* Fees table — another nested table, zero IDs */
+    .fees-table { border-collapse: collapse; width: 100%; font-size: 0.88em; margin-top: 8px; }
+    .fees-table th { background: #e8eef8; color: #003366; padding: 6px 10px; text-align: left; border-bottom: 2px solid #003366; }
+    .fees-table td { border-bottom: 1px solid #eee; padding: 6px 10px; }
+    .fees-table tr.reversed td { color: #999; text-decoration: line-through; }
+    /* Reverse button: role=button achieved via CSS on an <a> — accessibility trap */
+    .rev-btn { display: inline-block; background: #8b0000; color: #fff; padding: 3px 10px; font-size: 0.82em; cursor: pointer; border: none; }
+    .rev-btn:hover { background: #a00; }
+    .rev-btn:disabled, .rev-btn[aria-disabled="true"] { background: #aaa; cursor: not-allowed; }
+    .back-link { display: inline-block; margin-top: 12px; font-size: 0.85em; color: #003366; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>First National Credit Union &mdash; Account Detail</h1>
+  </div>
+  <div class="content">
+    <div class="card">
+      <h2>Account Information</h2>
+      <table class="info-table">
+        <tr><td>Account Number</td><td>{{ account.account_id }}</td></tr>
+        <tr><td>Member Name</td><td>{{ account.member_name }}</td></tr>
+        <tr><td>Current Balance</td><td>${{ "%.2f"|format(account.balance) }}</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Overdraft Fees</h2>
+      {% if account.fees %}
+      <table class="fees-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fee in account.fees %}
+          <tr class="{{ 'reversed' if fee.reversed else '' }}">
+            <td>{{ fee.date }}</td>
+            <td>{{ fee.description }}</td>
+            <td>${{ "%.2f"|format(fee.amount) }}</td>
+            <td>{{ "Reversed" if fee.reversed else "Active" }}</td>
+            <td>
+              {% if not fee.reversed %}
+              <form method="POST" action="/accounts/{{ account.account_id }}/reverse/{{ fee.fee_id }}" style="display:inline">
+                <button class="rev-btn" type="submit">Reverse Fee</button>
+              </form>
+              {% else %}
+              <span style="color:#999;font-size:0.85em">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p style="color:#666">No overdraft fees on record.</p>
+      {% endif %}
+    </div>
+
+    <a class="back-link" href="/accounts">&larr; Back to Account Search</a>
+  </div>
+</body>
+</html>

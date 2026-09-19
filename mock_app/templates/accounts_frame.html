@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Account Search</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; font-size: 0.9em; background: #fff; }
+    h3 { color: #003366; margin-top: 0; }
+    .search-area { margin-bottom: 16px; }
+    /* No label[for] on the search input */
+    .search-area span { font-weight: bold; margin-right: 8px; }
+    .search-area input { padding: 5px 8px; border: 1px solid #aaa; width: 160px; }
+    .search-area button { padding: 5px 14px; background: #003366; color: #fff; border: none; cursor: pointer; }
+    .error { color: #c00; padding: 8px; background: #fee; border: 1px solid #f99; margin-top: 8px; }
+    /* Results: nested table, no testid, columns unlabelled */
+    .results-table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    .results-table th { background: #003366; color: #fff; padding: 6px 10px; text-align: left; font-size: 0.85em; }
+    .results-table td { border-bottom: 1px solid #ddd; padding: 6px 10px; }
+    .results-table tr:hover td { background: #eef4ff; }
+    .results-table a { color: #003366; text-decoration: none; font-weight: bold; }
+    .results-table a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h3>Member Account Search</h3>
+  <div class="search-area">
+    <form method="GET" action="/accounts/frame" target="account-search">
+      <span>Account Number</span>
+      <input type="text" name="q" value="{{ query }}" id="account-search-input" />
+      <button type="submit">Search</button>
+    </form>
+  </div>
+
+  {% if error %}
+    <div class="error" id="search-error">{{ error }}</div>
+  {% endif %}
+
+  {% if results %}
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Account #</th>
+          <th>Member Name</th>
+          <th>Balance</th>
+          <th>&nbsp;</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for acct in results %}
+        <tr>
+          <td>{{ acct.account_id }}</td>
+          <td>{{ acct.member_name }}</td>
+          <td>${{ "%.2f"|format(acct.balance) }}</td>
+          <td><a href="/accounts/{{ acct.account_id }}" target="_top">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if not results and not error and not query %}
+    <p style="color:#666">Enter an account number above and click Search.</p>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,287 @@
+{
+  "name": "overdraft_fee_reversal",
+  "version": 1,
+  "description": "Log in as agent / bankpass. Navigate to the Account Search. Look up account 88214. View the account detail. Find the overdraft fee dated 3/12 and click 'Reverse Fee'. Confirm you have reached the reversal confirmation screen.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "account_id": {
+        "type": "string",
+        "description": "Member account number"
+      },
+      "fee_date": {
+        "type": "string",
+        "description": "Fee date e.g. 3/12"
+      }
+    },
+    "required": [
+      "account_id",
+      "fee_date"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "confirmed_text": {
+        "type": "string"
+      },
+      "account_id": {
+        "type": "string"
+      }
+    }
+  },
+  "steps": [
+    {
+      "action": "type",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "Username",
+          "role": null,
+          "accessible_name": "Username"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Username",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": "agent",
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "type",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "Password",
+          "role": null,
+          "accessible_name": "Password"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Password",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": "bankpass",
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "click",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "Sign In",
+          "role": null,
+          "accessible_name": "Sign In"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Sign In",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": null,
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "click",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "Member Accounts",
+          "role": null,
+          "accessible_name": "Member Accounts"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Member Accounts",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": null,
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "type",
+      "target": {
+        "frame": "account-search",
+        "primary": {
+          "strategy": "role",
+          "value": "Account Number",
+          "role": null,
+          "accessible_name": "Account Number"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Account Number",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": "{{account_id}}",
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "click",
+      "target": {
+        "frame": "account-search",
+        "primary": {
+          "strategy": "role",
+          "value": "Search",
+          "role": null,
+          "accessible_name": "Search"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Search",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": null,
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "click",
+      "target": {
+        "frame": "account-search",
+        "primary": {
+          "strategy": "role",
+          "value": "View",
+          "role": null,
+          "accessible_name": "View"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "View",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": null,
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "click",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "Reverse Fee",
+          "role": null,
+          "accessible_name": "Reverse Fee"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "Reverse Fee",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": null,
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
+      "action": "assert_text",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "REVERSAL COMPLETE",
+          "role": null,
+          "accessible_name": "REVERSAL COMPLETE"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "REVERSAL COMPLETE",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": "REVERSAL COMPLETE",
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    }
+  ],
+  "checkpoint": {
+    "frame": null,
+    "primary": {
+      "strategy": "text_near",
+      "value": "REVERSAL COMPLETE",
+      "role": null,
+      "accessible_name": null
+    },
+    "fallbacks": []
+  },
+  "outcomes": [
+    {
+      "label": "success",
+      "match": "REVERSAL COMPLETE",
+      "is_success": true
+    },
+    {
+      "label": "not_found",
+      "match": "No records found",
+      "is_success": false
+    },
+    {
+      "label": "already_reversed",
+      "match": "Fee already reversed",
+      "is_success": false
+    },
+    {
+      "label": "threshold_hold",
+      "match": "Supervisor Approval Required",
+      "is_success": false
+    },
+    {
+      "label": "permission_denied",
+      "match": "Incorrect supervisor password",
+      "is_success": false
+    }
+  ],
+  "metadata": {
+    "goal": "Log in as agent / bankpass. Navigate to the Account Search. Look up account 88214. View the account detail. Find the overdraft fee dated 3/12 and click 'Reverse Fee'. Confirm you have reached the reversal confirmation screen.",
+    "model": "qwen2.5:14b-instruct",
+    "target_url": "http://127.0.0.1:5001",
+    "created_at": "2026-09-19T19:51:18.648267+00:00",
+    "discovery_run_id": "disc_5dd7ff3d",
+    "step_count": 9
+  }
+}

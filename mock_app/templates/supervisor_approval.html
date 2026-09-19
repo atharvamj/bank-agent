@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Supervisor Approval Required — First National CU</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; }
+    .header { background: #003366; color: #fff; padding: 10px 20px; }
+    .header h1 { margin: 0; font-size: 1.1em; }
+    .content { padding: 24px 20px; }
+    .approval-box { background: #fff; border: 2px solid #8b4000; padding: 22px 26px; max-width: 500px; }
+    .approval-box h2 { color: #8b4000; margin-top: 0; font-size: 1.05em; }
+    .warn { background: #fff3e0; border: 1px solid #ffb74d; padding: 8px 12px; font-size: 0.88em; margin-bottom: 14px; }
+    .detail-table { border-collapse: collapse; font-size: 0.88em; margin-bottom: 14px; }
+    .detail-table td { padding: 3px 14px 3px 0; }
+    .detail-table td:first-child { font-weight: bold; color: #555; width: 130px; }
+    .row { margin-bottom: 10px; }
+    .row span { display: block; font-size: 0.83em; font-weight: bold; color: #444; margin-bottom: 3px; }
+    .row input { width: 220px; padding: 5px 8px; border: 1px solid #aaa; }
+    .err { color: red; font-size: 0.85em; margin-bottom: 8px; }
+    .btn-approve { background: #8b4000; color: #fff; border: none; padding: 7px 22px; cursor: pointer; font-size: 0.95em; }
+    .btn-approve:hover { background: #a04800; }
+    .back-link { display: block; margin-top: 14px; font-size: 0.82em; color: #003366; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>First National Credit Union &mdash; Supervisor Approval</h1>
+  </div>
+  <div class="content">
+    <div class="approval-box" id="supervisor-approval-screen">
+      <h2>&#9888; Supervisor Approval Required</h2>
+      <div class="warn">
+        This account has already had one overdraft reversal this session. A second reversal exceeds the auto-approval threshold and requires supervisor authorization.
+      </div>
+      <table class="detail-table">
+        <tr><td>Account</td><td>{{ account.account_id }}</td></tr>
+        <tr><td>Member</td><td>{{ account.member_name }}</td></tr>
+        <tr><td>Fee Date</td><td>{{ fee.date }}</td></tr>
+        <tr><td>Amount</td><td>${{ "%.2f"|format(fee.amount) }}</td></tr>
+      </table>
+      {% if error %}
+        <p class="err">{{ error }}</p>
+      {% endif %}
+      <form method="POST" action="/accounts/{{ account_id }}/reverse/{{ fee_id }}/approve">
+        <div class="row">
+          <span>Supervisor Password</span>
+          <input type="password" name="supervisor_password" id="supervisor-password-input" />
+        </div>
+        <button class="btn-approve" type="submit" id="supervisor-approve-btn">Authorize Reversal</button>
+      </form>
+      <a class="back-link" href="/accounts/{{ account_id }}">&larr; Cancel</a>
+    </div>
+  </div>
+</body>
+</html>

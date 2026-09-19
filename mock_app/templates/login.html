@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>First National Credit Union — Staff Portal</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #003366; margin: 0; padding: 0; }
+    .outer { width: 100%; height: 100vh; display: table; }
+    .inner { display: table-cell; vertical-align: middle; text-align: center; }
+    /* Deliberately nested table layout — no landmark elements */
+    .login-box { display: inline-block; background: #fff; padding: 30px 40px; border: 2px solid #ccc; }
+    .login-box h2 { color: #003366; margin-bottom: 20px; }
+    .err { color: red; font-size: 0.9em; margin-bottom: 10px; }
+    /* Labels NOT wired to inputs with for= — accessibility hostile */
+    .row { margin-bottom: 12px; text-align: left; }
+    .row span { display: block; font-size: 0.85em; font-weight: bold; color: #333; margin-bottom: 3px; }
+    .row input { width: 240px; padding: 6px 8px; border: 1px solid #aaa; font-size: 1em; }
+    .btn { background: #003366; color: #fff; border: none; padding: 9px 28px; font-size: 1em; cursor: pointer; margin-top: 8px; }
+    .btn:hover { background: #0055a5; }
+  </style>
+</head>
+<body>
+<div class="outer">
+  <div class="inner">
+    <div class="login-box">
+      <h2>Staff Login</h2>
+      {% if error %}
+        <p class="err">{{ error }}</p>
+      {% endif %}
+      <form method="POST" action="/">
+        <table cellspacing="4" cellpadding="0">
+          <tr>
+            <td>
+              <div class="row">
+                <!-- No label[for] — agent must match by nearby text -->
+                <span>Username</span>
+                <input type="text" name="username" id="username" autocomplete="off" />
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row">
+                <span>Password</span>
+                <input type="password" name="password" id="password" />
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align:right">
+              <button class="btn" type="submit">Sign In</button>
+            </td>
+          </tr>
+        </table>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>
