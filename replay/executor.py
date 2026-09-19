@@ -185,10 +185,12 @@ def replay(
         if risk == Risk.IRREVERSIBLE:
             if logger:
                 logger.log("REPLAY_IRREVERSIBLE_STEP", {"step": step_num, "target": target_label})
-            # Ask for approval
             approved = True
             if approval_callback:
-                approved = approval_callback(step_num)
+                try:
+                    approved = approval_callback(step_num, page)
+                except TypeError:
+                    approved = approval_callback(step_num)
             if not approved:
                 ev = logger.save_screenshot(page, f"blocked_{step_num}") if logger else ""
                 return Failure(

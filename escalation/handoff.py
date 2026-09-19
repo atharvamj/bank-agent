@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,18 +69,37 @@ def create_intervention(
         _mark_resolved(record_path, "auto_approved")
         return True
 
-    # Block until operator signals resume via the CLI
+    # Block until operator signals resume via the CLI or in-process event
     event = threading.Event()
     _RESUME_EVENTS[intervention_id] = event
     print("  Waiting for operator... Run: python -m escalation.operator", flush=True)
-    resumed = event.wait(timeout=600)  # 10 min operator timeout
+
+    start_time = time.time()
+    resumed = False
+    timeout = 600
+    while time.time() - start_time < timeout:
+        if event.is_set():
+            resumed = True
+            break
+        if record_path.exists():
+            try:
+                data = json.loads(record_path.read_text(encoding="utf-8"))
+                if data.get("status") == "operator_resumed":
+                    resumed = True
+                    break
+                elif data.get("status") in ("aborted", "rejected"):
+                    resumed = False
+                    break
+            except Exception:
+                pass
+        time.sleep(0.5)
 
     if resumed:
         _mark_resolved(record_path, "operator_resumed")
     else:
         _mark_resolved(record_path, "timed_out")
 
-    del _RESUME_EVENTS[intervention_id]
+    _RESUME_EVENTS.pop(intervention_id, None)
     return resumed
 
 
@@ -88,12 +108,11 @@ def wait_for_resume(intervention_id: str) -> bool:
     event = _RESUME_EVENTS.get(intervention_id)
     if event:
         event.set()
-        return True
-    # If the main process has already moved on, just mark it resolved
     path = _PENDING_DIR / f"{intervention_id}.json"
     if path.exists():
-        _mark_resolved(path, "late_signal")
-    return False
+        _mark_resolved(path, "operator_resumed")
+        return True
+    return event is not None
 
 
 def _mark_resolved(path: Path, status: str) -> None:

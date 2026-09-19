@@ -145,10 +145,17 @@ def cmd_replay(args: argparse.Namespace) -> None:
 
     session_state: dict = {"reversal_counts": {}}
 
-    def approval_callback(step_num: int) -> bool:
+    def approval_callback(step_num: int, acting_page=None) -> bool:
+        p = acting_page or page
         screenshot_path = logger.evidence_dir / f"blocked_{step_num}.png"
+        try:
+            p.screenshot(path=str(screenshot_path))
+            print(f"  📸 Escalation screenshot captured: {screenshot_path}", flush=True)
+        except Exception as exc:
+            print(f"  [warn] Failed to capture escalation screenshot: {exc}", flush=True)
+
         cdp_url = f"http://localhost:{CDP_PORT}" if not args.no_cdp else ""
-        create_intervention(
+        resumed = create_intervention(
             reason="Irreversible step requires supervisor approval",
             step=step_num,
             screenshot_path=str(screenshot_path),
@@ -156,7 +163,7 @@ def cmd_replay(args: argparse.Namespace) -> None:
             run_id=run_id,
             auto_resume=False,  # genuine pause in replay
         )
-        return True  # resume after operator signals
+        return resumed
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
