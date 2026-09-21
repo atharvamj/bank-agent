@@ -19,8 +19,10 @@ from mock_app.data import (
     get_fee,
     reverse_fee,
     reverse_fee_with_supervisor,
+    reset_seed_data,
     ACCOUNTS,
 )
+
 
 app = Flask(__name__, template_folder="templates")
 app.secret_key = "dev-only-secret-not-for-prod"  # noqa: S105
@@ -176,5 +178,12 @@ def health():
     return jsonify({"status": "ok"})
 
 
+@app.route("/reset", methods=["GET", "POST"])
+def reset():
+    reset_seed_data()
+    return jsonify({"status": "reset_complete"})
+
+
+
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5001, debug=True)

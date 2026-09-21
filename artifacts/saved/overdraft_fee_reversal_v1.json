@@ -216,6 +216,29 @@
       "last_replayed_at": null
     },
     {
+      "action": "wait_for",
+      "target": {
+        "frame": null,
+        "primary": {
+          "strategy": "role",
+          "value": "REVERSAL COMPLETE",
+          "role": null,
+          "accessible_name": "REVERSAL COMPLETE"
+        },
+        "fallbacks": [
+          {
+            "strategy": "text_near",
+            "value": "REVERSAL COMPLETE",
+            "role": null,
+            "accessible_name": null
+          }
+        ]
+      },
+      "value_template": "REVERSAL COMPLETE",
+      "last_strategy_used": null,
+      "last_replayed_at": null
+    },
+    {
       "action": "assert_text",
       "target": {
         "frame": null,
@@ -280,8 +303,8 @@
     "goal": "Log in as agent / bankpass. Navigate to the Account Search. Look up account 88214. View the account detail. Find the overdraft fee dated 3/12 and click 'Reverse Fee'. Confirm you have reached the reversal confirmation screen.",
     "model": "qwen2.5:14b-instruct",
     "target_url": "http://127.0.0.1:5001",
-    "created_at": "2026-09-19T19:51:18.648267+00:00",
-    "discovery_run_id": "disc_5dd7ff3d",
-    "step_count": 9
+    "created_at": "2026-09-20T03:12:31.988354+00:00",
+    "discovery_run_id": "disc_517c2995",
+    "step_count": 10
   }
 }

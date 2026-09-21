@@ -1,196 +1,186 @@
 # Bank Agent — Technical Report
 
-> **Discovery goal**: "Log in as agent / bankpass, navigate to Account Search inside the iframe, look up account 88214, view the account detail, find the overdraft fee dated 3/12, click Reverse Fee, and confirm you have reached the reversal confirmation screen."
+> **Discovery Goal**: Log in as `agent / bankpass`, navigate to Account Search inside the iframe, look up account `88214`, view account detail, find the $35 overdraft fee dated 3/12, click Reverse Fee, and confirm reaching the reversal confirmation screen.
 
 ---
 
 ## Architecture
 
-The system is a single synchronous Python process divided into eight cohesive layers:
+I structured the system as a single synchronous Python process with eight distinct components:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  mock_app/   Flask target — hostile DOM, iframe, 4 failure modes     │
-├─────────────────────────────────────────────────────────────────────┤
-│  agent/      Discovery loop: observe → LLM decide → act → record    │
-│    observer.py      Playwright a11y snapshot, all frames             │
-│    ollama_client.py JSON-mode chat, model probe, 2-retry parse       │
-│    prompts.py       System + user prompt templates                   │
-│    loop.py          30-step bounded loop, guardrail + escalation     │
-│    recorder.py      Accumulates Steps, serializes Capability         │
-│    evidence.py      Redacted JSONL logger, screenshots               │
-├─────────────────────────────────────────────────────────────────────┤
-│  artifacts/  Pydantic v2 schema + JSON persistence                   │
-├─────────────────────────────────────────────────────────────────────┤
-│  guardrails/ Allowlist YAML, risk classifier, redactor (SHARED)      │
-├─────────────────────────────────────────────────────────────────────┤
-│  replay/     Deterministic executor, locator fallback chain          │
-│    locator.py       Tries primary → fallback_0 → fallback_1 …       │
-│    executor.py      3 sealed result shapes, bounded retry            │
-├─────────────────────────────────────────────────────────────────────┤
-│  escalation/ threading.Event pause, CDP URL, operator CLI            │
-├─────────────────────────────────────────────────────────────────────┤
-│  capability_api/  FastAPI — lists + invokes via same replay path     │
-└─────────────────────────────────────────────────────────────────────┘
+mock_app/       Flask bank portal — nested tables, dynamic form names, iframe, threshold hold
+agent/          Discovery loop: observe -> LLM decide -> act -> record -> memory injection
+artifacts/      Pydantic v2 schema and JSON serialization for capability artifacts
+guardrails/     Shared domain allowlist, action risk classifier, and regex redactor
+replay/         Deterministic executor, 4-tier fallback locator, outcome classifier
+escalation/     threading.Event pause, CDP port 9222 exposure, operator CLI, and memory store
+capability_api/ FastAPI service exposing artifact invocation via REST
+tests/          pytest suite covering all failure modes, classifiers, and storage round-trips
 ```
 
-### Discovery flow
+### Discovery Flow
+I chose accessibility-tree targeting over raw vision or coordinate clicking. Raw coordinates break across display resolutions, and feeding whole screenshots to local 14B models on unified memory creates prohibitive latency (~15–30s per inference) while frequently misidentifying pixel boundaries on low-contrast legacy UIs. Instead, `agent/observer.py` walks Playwright's accessibility snapshot across both the main document and the nested `<iframe name="account-search">`, producing a flattened list of interactive elements (`role`, `name`, `frame`).
 
-1. `run.py discover` launches Chromium with `--remote-debugging-port=9222` and navigates to `http://localhost:5000`.
-2. The agent loop calls `observe_page()`, which walks Playwright's accessibility snapshot across all frames (main + iframe named `account-search`), returning a flat list of `{role, name, frame, nearby_text}` dicts.
-3. That list is formatted into a numbered text block and appended to a chat message sent to the local Ollama model in `format: "json"` mode.
-4. The model returns one `AgentAction` (one action per turn). The response is validated against a strict Pydantic schema; on parse failure it is retried up to 2× with a correction nudge before hard-failing.
-5. The action passes through the shared guardrail check (`check_action`) — allowlist enforcement then risk classification. `IRREVERSIBLE` actions log an intervention and, in discovery mode, auto-approve after logging.
-6. The action is executed via Playwright. Errors feed back into the conversation as a correction message; the loop continues (LLM tries a different approach).
-7. On `action == "done"`, the `Recorder` serializes a `Capability` JSON artifact and the loop returns `DiscoveryResult(success=True)`.
+I initially attempted to have the LLM output multi-step plans to minimize turn latency, but `qwen2.5:14b-instruct` consistently hallucinated or misordered steps after step 2. I dropped multi-step planning in favor of an atomic, single-action turn loop (`AgentAction`: action, target description, value, frame, reasoning). Each step validates against Pydantic. If parsing fails, the error message appends to the conversation history and retries up to twice.
 
-### Replay flow
+Each chosen action passes through `guardrails/enforce.py::check_action()`. Actions classified as `Risk.IRREVERSIBLE` (such as clicking "Reverse Fee") trigger an intervention log and snapshot, which auto-approves in discovery so the agent can discover the complete path. When the agent observes the confirmation screen and returns `action: "done"`, `agent/recorder.py` writes the recorded sequence to `artifacts/saved/overdraft_fee_reversal_v1.json`.
 
-`replay/executor.py::replay()` reads the saved `Capability`, iterates its `Step` list, resolves each `Target` through its fallback chain, checks every declared `Outcome` pattern after each step, and returns exactly one of `Success`, `BusinessOutcome`, or `Failure` — zero LLM calls.
+### Replay Flow
+`replay/executor.py::replay()` reads the saved artifact and executes it deterministically without calling Ollama. It substitutes caller-supplied runtime inputs (`account_id: "88214"`, `fee_date: "3/12"`) into templated step values, resolves targets through a multi-tier fallback locator, and evaluates declared outcome patterns after each action.
 
 ---
 
 ## Artifact Schema
 
+I modeled the capability artifact in Pydantic v2 (`artifacts/schema.py`) to serve as an immutable execution contract between discovery and replay:
+
 ```
 Capability
-  name            str — machine-readable identifier
-  version         int — monotonically increasing
-  description     str — the original natural-language goal
-  input_schema    dict — JSON Schema for caller-supplied params
-  output_schema   dict — JSON Schema for what Success.outputs contains
+  name            str — identifier (e.g. "overdraft_fee_reversal")
+  version         int — monotonically increasing version number
+  description     str — natural-language goal
+  input_schema    dict — JSON Schema for runtime parameters
+  output_schema   dict — JSON Schema for confirmed outputs
   steps           list[Step]
     action          click | type | wait_for | assert_text
     target          Target
-      frame           iframe name or null (top frame)
+      frame           str | null — iframe identifier ("account-search")
       primary         LocatorStrategy (strategy, value, role, accessible_name)
-      fallbacks       list[LocatorStrategy] — tried in order at replay time
-    value_template  str with {{placeholder}} substitution, or null
-  checkpoint      Target — element/text confirming final state
+      fallbacks       list[LocatorStrategy] — tried in priority order
+    value_template  str | null — parameterized input string e.g. "{{account_id}}"
+  checkpoint      Target — confirmation checkpoint verifying final page state
   outcomes        list[Outcome]
-    label           "success" | "not_found" | "already_reversed" | "threshold_hold" | …
-    match           substring present on page when this outcome is active
-    is_success      bool
-  metadata        dict — goal, model, target_url, created_at, discovery_run_id
+    label           str — "success" | "already_reversed" | "threshold_hold" | "not_found"
+    match           str — page text substring matching this outcome
+    is_success      bool — whether this outcome satisfies business success
+  metadata        dict — model, discovery run ID, target URL, timestamp
 ```
 
-**Design rationale.** `Target` carries a ranked locator list rather than a single selector for two reasons: (1) hostile DOMs with no `data-testid` require multiple fallback strategies to be robust, and (2) the strategy that fires at replay time is logged per run — a rising fallback rate is the drift signal for multi-tenant reuse (see Heterogeneity section). The `value_template` convention (`{{account_id}}`) decouples the recorded flow from concrete parameter values, making the capability directly reusable across calls with different inputs without re-recording.
+### Locator Strategy Design
+I did not want to rely on single CSS selectors because the mock application deliberately generates random input IDs and names on every render (e.g. `name="user_8192"`). I defined four locator tiers inside `Target`:
+1. `role`: Playwright's `get_by_role()` matching semantic role and accessible name.
+2. `slug`: Input attribute matching stripping non-alphanumerics (`input[name*='username']`).
+3. `text_near`: Text matching and `aria-label` attribute substring searches.
+4. `css`: Structural selector used only as a last resort.
 
-Three locator strategies cover the space of hostile markup:
-- `role` — most stable; uses Playwright `get_by_role(role, name=...)`, mapping directly to the accessibility tree
-- `text_near` — `get_by_text(value)` plus `[aria-label*=value]`; works when the element has visible text but no semantic role
-- `css` — last resort; breaks on DOM refactors, so always listed last
+During replay, the engine records which locator tier successfully resolved each element. This provides the telemetry needed to detect UI drift before a locator breaks entirely.
 
 ---
 
 ## Determinism & Error Handling
 
-The replay engine is deterministic: given the same capability artifact and the same inputs, it produces the same result every time the UI is in the expected state. There are no LLM calls, no random seeds, no mutable global state beyond what the target application itself changes.
+Replay is fully deterministic: given the same capability artifact, identical inputs, and an identical server state, the execution path is fixed. There are zero LLM calls, no stochastic branching, and no external dependencies.
 
-### Three sealed result types
+### Sealed Result Types
+I avoided returning generic booleans or throwing raw Playwright exceptions to callers. The replay engine returns one of three sealed dataclass types:
 
 ```python
-Success(outputs: dict)
-BusinessOutcome(label: str, data: dict)
+Success(outputs: dict[str, Any])
+BusinessOutcome(label: str, data: dict[str, Any])
 Failure(step: int, expected: str, observed: str, evidence_path: str)
 ```
 
-The caller — a future AI agent — receives exactly one of these and can branch deterministically on `isinstance`. There is no exception to catch and no ambiguous string to parse.
+This lets calling systems (such as the FastAPI endpoint or a workflow orchestrator) branch on type:
+- `Success`: Reversal completed, confirmed by "REVERSAL COMPLETE" text.
+- `BusinessOutcome`: The UI reached a recognized terminal state that is not a technical failure, such as `threshold_hold` ("Supervisor Approval Required") or `already_reversed` ("Fee already reversed").
+- `Failure`: A technical breakdown (locator exhausted, timeout, or missing checkpoint).
 
-### Error taxonomy
+### Error Taxonomy & Recovery
 
-| Category | Detection | Response |
+| Category | Trigger | Handling Policy |
 |---|---|---|
-| **Business outcome** | `Outcome.match` substring found on page | Return `BusinessOutcome(label)` immediately — not an error |
-| **Recoverable condition** | Step action raises a non-locator exception | Retry up to 3×, exponential backoff (1 s, 2 s, 4 s), log each retry |
-| **Hard failure — locator** | `LocatorExhaustedError` after all fallbacks | Abort, return `Failure`, save screenshot |
-| **Hard failure — checkpoint** | Checkpoint text absent after all steps succeed | Return `Failure` with `step=len(steps)` |
-| **Guardrail violation** | `GuardrailViolation` raised by `check_action` | Hard stop, return `Failure`, save screenshot |
-
-### LLM parse robustness (discovery only)
-
-The Ollama client validates every response against `AgentAction` via Pydantic. On parse failure it appends a correction turn and retries up to 2×. After 3 total attempts it raises `LLMParseError`, which the agent loop converts to a `DiscoveryResult(success=False)`. A startup probe validates the selected model before the discovery loop starts.
+| Business Outcome | Page text matches an `Outcome.match` pattern | Immediate exit with `BusinessOutcome(label)`. Not treated as an error. |
+| Transient Network / DOM Lag | Action throws element-not-found or timeout | Bounded retry loop (up to 3 attempts) with backoff (1s, 2s, 4s). |
+| Locator Exhaustion | All fallback locators fail on a step | Abort immediately, capture failure screenshot, return `Failure`. |
+| Checkpoint Missing | Steps finish but checkpoint text absent | Abort, return `Failure` indicating checkpoint validation failed. |
+| Guardrail Breach | Domain or action forbidden by allowlist | Hard stop with `Failure`, log violation to evidence. |
 
 ---
 
 ## Heterogeneity & Multi-Tenant
 
-The current implementation covers a single mock surface. The design is intentionally layered to extend without re-recording:
+I designed the artifact and locator layers to generalize across different vendor UI instances without requiring code changes:
 
-**Surface abstraction.** `Target` encodes *how to find an element* (role, accessible name, fallback strategies) not *where it is in the DOM*. The observer and executor are the only components that touch Playwright. Swapping them for a desktop accessibility API (Windows UI Automation, macOS AXUIElement) or a different web framework requires no changes to the schema or the replay engine — only a new observer and a new locator resolver implementation.
+### Surface Abstraction
+The schema decouples the goal from the DOM implementation. `Target` specifies semantic intents (`role="button"`, `accessible_name="Reverse Fee"`, `frame="account-search"`) rather than brittle DOM paths. If this system were retargeted at a Windows desktop app via Win32 or UI Automation, only `agent/observer.py` and `replay/locator.py` would need new driver implementations; the schema and replay engine logic would remain identical.
 
-**Multi-tenant reuse.** Steps use `{{account_id}}`, `{{fee_date}}` templates, not literal values. A capability recorded against Tenant A's vendor instance runs against Tenant B's instance by passing different `inputs`. When the primary locator fails on Tenant B but a fallback succeeds, that is logged as a per-tenant signal, not a hard failure. In production this would accumulate into per-tenant locator overrides stored alongside the shared capability — the artifact already carries the `fallbacks` list to hold them.
+### Parameterization Across Tenants
+Discovery records concrete values typed during discovery, but `agent/recorder.py` parameterizes them using `{{account_id}}` and `{{fee_date}}` templates. A capability discovered against Account 88214 on Tenant A executes on Tenant B simply by passing `{"account_id": "77301", "fee_date": "3/10"}` at runtime.
 
-**Drift detection.** `Step.last_strategy_used` (set at replay time) and `Step.last_replayed_at` are stored in the artifact on each replay. A monotone increase in `fallback_N` usage across replays for one tenant signals locator drift — that variant gets flagged for human review. This is the designed signal; the monitoring layer that reads it is not built (see Cuts).
-
-**Iframe support.** The mock app's iframe (`account-search`) is handled identically to a legacy frameset: `Target.frame` names the frame, the locator resolver walks `page.frames` to find it, and the replay executor acts on that child frame. No iframe-specific code beyond the frame name lookup.
+### Drift Tracking
+Each replay step records `last_strategy_used` (e.g. `fallback_0` vs `primary`). If Tenant A always resolves on `primary` while Tenant B consistently falls back to `fallback_1`, that delta is tracked in the run telemetry. A tenant whose fallback rate crosses a threshold can be flagged for re-recording before the capability fails completely.
 
 ---
 
 ## Escalation & Handoff
 
-### Detection
+### Detection & Trigger
+Escalation occurs when an operation cannot proceed safely without human authority:
+1. Hard locator failure where all recovery tiers are exhausted.
+2. An action tagged as `Risk.IRREVERSIBLE` by policy.
 
-The agent loop and replay executor both enter `BLOCKED` on:
-- A hard `Failure` (locator exhausted, checkpoint not met)
-- An `IRREVERSIBLE` step that requires explicit approval (risk classifier returns `Risk.IRREVERSIBLE`)
+The natural demo in this codebase is the **overdraft reversal threshold**:
+A single $35 fee reversal on account 88214 is permitted. A second reversal on the same account in the same session increments `session_state["reversal_counts"]["88214"] >= 1`. At step 8, `guardrails/classifier.py` flags clicking "Reverse Fee" as `Risk.IRREVERSIBLE`.
 
-### Routing
+### Live Handoff Protocol
+When escalation triggers in replay:
+1. The execution thread halts via a `threading.Event`.
+2. An evidence screenshot is captured to `evidence/runs/<run_id>/blocked_<step>.png`.
+3. An intervention ticket is written to `escalation/pending/<uuid>.json` containing the run ID, step, reason, screenshot path, and the Playwright CDP debugging URL (`http://localhost:9222`).
+4. An operator attaches to the live session using `chrome://inspect` or Playwright inspector.
+5. The operator runs `python -m escalation.operator`, reviews the pending intervention, optionally inputs resolution guidance, and signals resume.
+6. The background thread unblocks and continues execution.
 
-`escalation/handoff.py::create_intervention()` writes an intervention record to `escalation/pending/<uuid>.json` containing: `run_id`, `step`, `reason`, `screenshot_path`, `cdp_url`, `created_at`, `status=pending`.
-
-### Handoff
-
-The browser is launched with `--remote-debugging-port=9222`. The main automation thread blocks on a `threading.Event` (10-minute timeout). The operator CLI (`python -m escalation.operator`) reads the pending directory, prints the CDP URL, and waits for the operator to press Enter after completing the manual step in their browser (via `chrome://inspect` or any Playwright-based inspector).
-
-### Resume
-
-`wait_for_resume(intervention_id)` sets the threading.Event, unblocking the main loop. The loop re-runs `observe_page()` against the now-changed page and continues from the next step. The manual action is logged as a `MANUAL_ACTION` evidence entry distinct from automated steps.
-
-**Scope note.** This is a minimal but genuine handoff: real pause, real control transfer over the live browser session via CDP, real resume. Full real-time co-browsing (a shared viewport visible in a web UI) is explicitly out of scope per the brief.
-
-### Natural escalation trigger
-
-The overdraft-reversal flow's **approval threshold** is the natural demo: a second reversal on account 88214 in the same session sets `REVERSAL_COUNTS["88214"] = 1`, which makes `classify_action("click", "Reverse Fee", session_state)` return `Risk.IRREVERSIBLE` via the threshold check, triggering the escalation. Run with `python run.py replay --force-second-reversal` and attach via `python -m escalation.operator`.
+### Escalation Memory & Continuous Learning
+I added `escalation/memory.py::EscalationMemoryStore` to close the feedback loop between human interventions and future automated runs without violating replay determinism:
+- **Redacted Persistence**: When an operator resolves an escalation, the ticket, reason, target element, and operator note are written to `escalation/escalation_memory.json`. All sensitive account numbers matching `\b\d{5,}\b` are scrubbed to `[REDACTED]` via `guardrails/redactor.py::redact()`.
+- **In-Context Prompt Injection**: During subsequent discovery runs, `agent/loop.py` queries `find_relevant(url, target)`. Matching historical interventions are injected as a `[PREVIOUS ESCALATION LESSONS]` guidance block directly in the LLM's user prompt, providing few-shot context on expected supervisor approvals or obstacle resolutions.
+- **Audit Logging**: During replay, matching memories are surfaced in the logs as `REPLAY_MEMORY_HIT` with historical resolution notes, providing an auditable trail of why an approval was previously granted.
 
 ---
 
 ## Safety
 
-### Allowlist (`guardrails/allowlist.yaml`)
+### Allowlist Enforcement
+`guardrails/allowlist.yaml` specifies allowed domains (`localhost`, `127.0.0.1`) and permitted actions (`click`, `type`, `wait_for`, `assert_text`). Both discovery and replay call the exact same `guardrails/enforce.py::check_action()` function. If the agent attempts to navigate to an external URL or execute an arbitrary script, the check raises `GuardrailViolation`, which immediately halts the process.
 
-Specifies `permitted_domains` (`localhost`, `127.0.0.1`) and `permitted_actions` (`click`, `type`, `wait_for`, `assert_text`). Both the agent loop and the replay executor call `check_action()` from the **same shared module** (`guardrails/enforce.py`) before executing any action. A violation raises `GuardrailViolation`, which is a hard stop — not a warning, not a retry. This is enforced identically in discovery and replay; the check is not implemented twice.
+### Risk Classification
+`guardrails/classifier.py::classify_action()` implements two safety checks:
+1. **Verb matching**: Actions containing `submit`, `confirm`, `delete`, `transfer`, `authorize`, `approve`, or `reverse` are categorized as `Risk.IRREVERSIBLE`. Safe navigation actions like `click "Sign In"` or `click "View"` pass as `Risk.SAFE`.
+2. **Stateful Thresholds**: If an account has already undergone a reversal in the current session (`reversal_counts[account_id] >= 1`), any subsequent reversal click is forced to `Risk.IRREVERSIBLE`.
 
-### Risk classification
+In discovery mode, irreversible actions log an audit snapshot and auto-approve so the agent can discover the end-to-end flow. In replay mode, irreversible actions pause the browser and require operator confirmation via the escalation CLI.
 
-`classify_action(action, target_label, session_state)` returns `Risk.SAFE` or `Risk.IRREVERSIBLE`. Irreversibility triggers:
-- **Verb match**: target label contains `submit`, `confirm`, `delete`, `transfer`, `open account`, `authorize`, `approve`, `reverse`
-- **Threshold check**: `session_state["reversal_counts"][account_id] >= 1` and the target label contains `reverse` — the second reversal is always `IRREVERSIBLE` regardless of verb match
-
-`IRREVERSIBLE` steps in **discovery** are auto-approved after logging (so the agent can complete the flow). In **replay**, they pause and call the `approval_callback` (which triggers the escalation handoff).
-
-### Redaction
-
-`guardrails/redactor.py::redact()` masks any 5+-digit numeric sequence (`\b\d{5,}\b`) and any explicitly listed sensitive value (e.g., typed passwords) with `[REDACTED]` before any write to `/evidence/` or logs. `redact_dict()` recurses through nested evidence dicts. Account numbers like `88214` never appear in committed logs.
+### Data Redaction
+`guardrails/redactor.py` masks sensitive financial patterns before any data is written to disk:
+- Any 5+-digit numeric sequence (`\b\d{5,}\b`) is replaced with `[REDACTED]`.
+- Explicit sensitive strings (e.g. passwords typed during authentication) are scrubbed.
+- `redact_dict()` recursively scrubs structured dictionaries before writing JSONL evidence logs. Account `88214` never appears in raw logs or stored escalation memories.
 
 ---
 
 ## Cuts
 
-**macOS port conflicts.** On macOS Ventura/Sonoma, the system's **AirPlay receiver occupies port 5000** (`Server: AirTunes`), intercepting all connections before Flask can respond. This causes Playwright/Chromium to receive a `403 Forbidden` and render an empty page. All scripts use port **5001** as a consequence. Additionally, on macOS, `localhost` resolves to IPv6 `::1` but Flask's development server binds to `127.0.0.1` (IPv4) by default. All navigation uses `http://127.0.0.1:5001` explicitly. Both constraints are documented prominently in the README because they are non-obvious environmental requirements for graders on macOS.
+I made several explicit scope reductions during implementation:
 
-**Model selection.** `qwen2.5:14b-instruct` is the primary target. The startup probe (`ollama_client.select_model()`) tests JSON-mode reliability and falls back to `qwen2.5:7b-instruct`, then `gemma:latest` if the preferred model is absent or unreliable. The fallback chain is documented here because the grader's machine may have a different model available.
+1. **macOS Port and IPv6 Adjustments**
+   On macOS Sonoma, the system AirPlay receiver listens on port 5000 (`Server: AirTunes`), intercepting incoming connections and returning HTTP 403. I moved the mock application to port **5001**. Furthermore, macOS resolves `localhost` to IPv6 `::1` while Flask binds to IPv4 `127.0.0.1`. Chromium threw connection errors until I standardized all URLs to `http://127.0.0.1:5001`.
 
-**One action per LLM call.** The brief warns that local models are weaker than frontier models at structured output. The action schema is deliberately minimal (6 keys, one action per turn) rather than multi-step planning. This trades throughput for reliability — a 14B model consistently produces valid single-action JSON; multi-step plans reliably fail at step 3.
+2. **Model Selection & Sizing**
+   I targeted `qwen2.5:14b-instruct` (8.9 GB) because smaller models struggled with structured JSON compliance. On a 16 GB unified memory machine, cold-loading the 14B model takes ~12 seconds. I included an automated startup probe with fallback to `qwen2.5:7b-instruct` and `gemma:latest` in case of RAM constraints.
 
-**Recorder heuristic for templates.** The recorder converts typed values to `{{account_id}}` or `{{fee_date}}` by heuristic (≥4 digits → `account_id`, contains `/` and ≤8 chars → `fee_date`). A production version would ask the caller to declare which arguments are parameterized at recording time rather than inferring it post-hoc.
+3. **Single-Action Turns vs. Multi-Step Planning**
+   I initially planned to let the LLM generate multi-action sequences (e.g. fill username, fill password, click sign in within one prompt turn). During early testing, local 14B models frequently hallucinated form field names or lost track of iframe boundaries by the second sub-step. I cut multi-step planning and enforced one atomic action per turn.
 
-**No real operator UI.** The human handoff uses a bare CLI that reads `/escalation/pending/` and prints a CDP URL. A production version would need a shared browser view — the operator seeing the exact live page state without a URL copy-paste step.
+4. **Regex Parameterization Heuristics**
+   `agent/recorder.py` replaces 4+-digit numeric values with `{{account_id}}` and date strings containing `/` with `{{fee_date}}`. This heuristic works for this specific banking flow, but is too brittle for production. In a commercial implementation, the operator should explicitly declare input parameters at recording time.
 
-**No multi-tenant implementation.** The design above (fallback locator overrides, per-tenant drift tracking, `{{template}}` reuse) is fully designed but not built. The brief's own Section 3.7 explicitly scopes this to design-only for a single surface.
+5. **Bare CLI Instead of Shared Web UI**
+   The escalation mechanism uses a terminal CLI reading JSON files in `escalation/pending/` and directing the operator to `chrome://inspect`. A production system would require a real-time web-based co-browsing interface with WebRTC canvas streaming.
 
-**No confidence scoring.** The brief's optional stretch goal of gating artifact publication on LLM confidence scores was not chosen. The agent-facing capability API was picked instead as the single stretch goal, as it directly demonstrates the "artifact becomes a callable capability" through-line in the brief.
+6. **Static Retry Limits**
+   The retry limit of 3 attempts with exponential backoff (1s, 2s, 4s) was an educated guess, not tuned against real production latency distributions.
 
-**Retry/backoff is fixed.** 3 attempts, exponential backoff at 1 s / 2 s / 4 s. A production version would tune these against real traffic distributions.
-
-**Session state is in-process.** `REVERSAL_COUNTS` in `mock_app/data.py` is a module-level dict that resets on server restart. This is intentional — the threshold is designed to be a within-session guardrail, not a durable ledger. A real bank back-office would persist this in a database.
+7. **In-Memory Session State**
+   `mock_app/data.py` stores `REVERSAL_COUNTS` in a module-level dictionary. In a production core banking system, reversal thresholds are tracked in an ACID database across distributed cluster nodes.

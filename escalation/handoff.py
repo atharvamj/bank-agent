@@ -12,8 +12,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from escalation.memory import EscalationMemoryStore
+
 _PENDING_DIR = Path(__file__).parent / "pending"
 _RESUME_EVENTS: dict[str, threading.Event] = {}
+_MEMORY_STORE = EscalationMemoryStore()
 
 
 def create_intervention(
@@ -23,6 +26,8 @@ def create_intervention(
     cdp_url: str,
     run_id: str,
     auto_resume: bool = False,
+    url: str = "",
+    target_description: str = "",
 ) -> bool:
     """
     Write an intervention record to /escalation/pending/ and pause the main thread.
@@ -48,8 +53,11 @@ def create_intervention(
         "reason": reason,
         "screenshot_path": screenshot_path,
         "cdp_url": cdp_url,
+        "url": url,
+        "target_description": target_description,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
+        "resolution_note": "",
     }
 
     record_path = _PENDING_DIR / f"{intervention_id}.json"
@@ -66,7 +74,7 @@ def create_intervention(
     print(f"{'='*60}\n", flush=True)
 
     if auto_resume:
-        _mark_resolved(record_path, "auto_approved")
+        _mark_resolved(record_path, "auto_approved", resolution_note="Auto-approved irreversible action during discovery")
         return True
 
     # Block until operator signals resume via the CLI or in-process event
@@ -103,24 +111,48 @@ def create_intervention(
     return resumed
 
 
-def wait_for_resume(intervention_id: str) -> bool:
+def wait_for_resume(intervention_id: str, resolution_note: str = "") -> bool:
     """Called by the operator CLI to signal that the human is done."""
+    path = _PENDING_DIR / f"{intervention_id}.json"
+    if path.exists():
+        _mark_resolved(path, "operator_resumed", resolution_note=resolution_note)
+
     event = _RESUME_EVENTS.get(intervention_id)
     if event:
         event.set()
-    path = _PENDING_DIR / f"{intervention_id}.json"
-    if path.exists():
-        _mark_resolved(path, "operator_resumed")
         return True
-    return event is not None
+    return path.exists()
 
 
-def _mark_resolved(path: Path, status: str) -> None:
+def _mark_resolved(path: Path, status: str, resolution_note: str = "") -> None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
+        already_resolved = data.get("status") in ("operator_resumed", "auto_approved") and status == data.get("status")
         data["status"] = status
         data["resolved_at"] = datetime.now(timezone.utc).isoformat()
+        if resolution_note:
+            data["resolution_note"] = resolution_note
+        final_note = data.get("resolution_note") or (
+            "Auto-approved irreversible action during discovery"
+            if status == "auto_approved"
+            else "Operator approved intervention via CDP"
+            if status == "operator_resumed"
+            else status
+        )
+        data["resolution_note"] = final_note
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        # Record into escalation memory store if resolved and not already recorded
+        if status in ("operator_resumed", "auto_approved") and not already_resolved:
+            _MEMORY_STORE.record(
+                trigger_reason=data.get("reason", ""),
+                step=data.get("step", 0),
+                url=data.get("url", ""),
+                target_description=data.get("target_description", ""),
+                resolution_note=final_note,
+                resolution_type=status,
+                run_id=data.get("run_id", ""),
+            )
     except Exception:
         pass
 

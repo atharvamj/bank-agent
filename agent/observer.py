@@ -165,7 +165,7 @@ def format_for_prompt(elements: list[dict], max_items: int = 60) -> str:
     return "\n".join(lines)
 
 
-def quick_snapshot(url: str = "http://127.0.0.1:5000") -> None:
+def quick_snapshot(url: str = "http://127.0.0.1:5001") -> None:
     """
     CLI helper: launch a headless browser, log in, go to accounts,
     and print the iframe-aware element list.

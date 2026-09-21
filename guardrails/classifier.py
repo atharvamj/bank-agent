@@ -33,10 +33,13 @@ def classify_action(
 
     Parameters
     ----------
-    action        : str — one of click, type, wait_for, assert_text
+    action        : str — one of click, type, wait_for, assert_text, done, escalate
     target_label  : str — accessible name or description of the target element
     session_state : dict — may include 'reversal_counts' {account_id: int}
     """
+    if action not in ("click", "type"):
+        return Risk.SAFE
+
     label_lower = (target_label or "").lower()
 
     # Threshold check: second reversal on same account always irreversible

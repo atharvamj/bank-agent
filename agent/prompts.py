@@ -52,18 +52,24 @@ def build_user_message(
     elements_text: str,
     history: list[str],
     step_num: int,
+    escalation_memories_text: str = "",
 ) -> str:
     """Build the user turn for each agent loop iteration."""
     history_block = ""
     if history:
         history_block = "\nACTION HISTORY (most recent last):\n" + "\n".join(
             f"  {i+1}. {h}" for i, h in enumerate(history[-12:])
-        )
+        ) + "\n"
+
+    memory_block = ""
+    if escalation_memories_text:
+        memory_block = f"\n{escalation_memories_text.strip()}\n"
 
     return (
         f"GOAL: {goal}\n"
         f"STEP: {step_num}\n"
-        f"\n{elements_text}"
-        f"{history_block}\n"
-        "\nChoose the NEXT single action. Return ONLY the JSON object."
+        f"\n{elements_text}\n"
+        f"{history_block}"
+        f"{memory_block}\n"
+        "Choose the NEXT single action. Return ONLY the JSON object."
     )

@@ -22,6 +22,7 @@ from agent.recorder import Recorder
 from artifacts.schema import Capability
 from guardrails import GuardrailViolation, Risk, check_action
 from escalation.handoff import create_intervention, wait_for_resume
+from escalation.memory import EscalationMemoryStore
 
 MAX_STEPS = 30
 WALL_TIMEOUT = 360  # seconds
@@ -154,6 +155,7 @@ def run_discovery(
     logger: EvidenceLogger,
     cdp_url: str = "",
     session_state: dict | None = None,
+    memory_store: EscalationMemoryStore | None = None,
 ) -> DiscoveryResult:
     """
     Run the full discover → record loop.
@@ -169,6 +171,7 @@ def run_discovery(
     logger           : EvidenceLogger
     cdp_url          : str — CDP URL for escalation handoff
     session_state    : dict — mutable state shared with guardrails
+    memory_store     : EscalationMemoryStore | None — memory store for past escalation lessons
     """
     run_id = logger.run_id
     recorder = Recorder(
@@ -178,6 +181,7 @@ def run_discovery(
         run_id=run_id,
     )
 
+    memory_store = memory_store or EscalationMemoryStore()
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     history: list[str] = []
     session_state = session_state or {"reversal_counts": {}}
@@ -207,8 +211,25 @@ def run_discovery(
             "element_count": len(elements),
         })
 
+        # Check escalation memory for lessons learned
+        relevant_memories = memory_store.find_relevant(url=current_url)
+        memories_text = ""
+        if relevant_memories:
+            logger.log("MEMORY_HIT", {
+                "step": step_num,
+                "count": len(relevant_memories),
+                "memory_ids": [m.memory_id for m in relevant_memories],
+            })
+            memories_text = memory_store.format_for_prompt(relevant_memories)
+
         # 2. Build prompt and call LLM
-        user_msg = build_user_message(goal, elements_text, history, step_num)
+        user_msg = build_user_message(
+            goal,
+            elements_text,
+            history,
+            step_num,
+            escalation_memories_text=memories_text,
+        )
         messages_for_call = messages + [{"role": "user", "content": user_msg}]
 
         t0 = time.time()
@@ -240,7 +261,7 @@ def run_discovery(
             logger.log("GOAL_ACHIEVED", {"step": step_num, "target": action.target_description})
             cap = recorder.finalize(
                 capability_name=capability_name,
-                checkpoint_description=action.target_description,
+                checkpoint_description=action.target_description or "REVERSAL COMPLETE",
                 checkpoint_frame=action.frame,
                 input_schema=input_schema,
             )
@@ -260,6 +281,8 @@ def run_discovery(
                 screenshot_path=str(screenshot_path),
                 cdp_url=cdp_url,
                 run_id=run_id,
+                url=current_url,
+                target_description=action.target_description,
             )
             if resumed:
                 history.append(f"[MANUAL INTERVENTION at step {step_num}] {action.target_description}")
@@ -299,6 +322,8 @@ def run_discovery(
                 cdp_url=cdp_url,
                 run_id=run_id,
                 auto_resume=True,  # In discovery: auto-approve after logging
+                url=current_url,
+                target_description=action.target_description,
             )
 
         logger.log("GUARDRAIL_CHECK", {"step": step_num, "risk": risk.value})

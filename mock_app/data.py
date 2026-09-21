@@ -100,3 +100,26 @@ def reverse_fee_with_supervisor(account_id: str, fee_id: str, password: str) -> 
     acct.balance += fee.amount
     REVERSAL_COUNTS[account_id] = REVERSAL_COUNTS.get(account_id, 0) + 1
     return True, "success"
+
+
+def reset_seed_data() -> None:
+    """Reset accounts, fees, and reversal counts back to initial state."""
+    REVERSAL_COUNTS.clear()
+    ACCOUNTS["88214"] = Account(
+        account_id="88214",
+        member_name="Maria Delgado",
+        balance=-42.50,
+        fees=[
+            Fee("F001", "3/12", "Overdraft Fee", 35.00),
+            Fee("F002", "3/15", "Overdraft Fee", 35.00),
+        ],
+    )
+    ACCOUNTS["77301"] = Account(
+        account_id="77301",
+        member_name="James Okafor",
+        balance=125.00,
+        fees=[
+            Fee("F101", "3/10", "Overdraft Fee", 35.00, reversed=True),
+        ],
+    )
+

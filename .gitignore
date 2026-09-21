@@ -13,3 +13,4 @@ build/
 escalation/pending/*.json
 # Keep evidence directory but not raw session cookies
 evidence/runs/*/session_*.json
+scratch/

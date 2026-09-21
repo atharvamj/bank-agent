@@ -1,0 +1,145 @@
+[
+  {
+    "memory_id": "e388b4a1",
+    "run_id": "test_run",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/account/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee on [REDACTED]",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Supervisor verified account waiver and authorized reversal",
+    "resolution_type": "operator_resumed",
+    "created_at": "2026-09-20T01:28:52.252599Z"
+  },
+  {
+    "memory_id": "4abba9b6",
+    "run_id": "rply_7aeeb003",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "Irreversible step requires supervisor approval",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Supervisor override: customer waiver on file for account [REDACTED]",
+    "resolution_type": "operator_resumed",
+    "created_at": "2026-09-20T01:36:15.353731Z"
+  },
+  {
+    "memory_id": "2b5846de",
+    "run_id": "rply_9db26eaf",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "Irreversible step requires supervisor approval",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Supervisor override: customer waiver on file for account [REDACTED]",
+    "resolution_type": "operator_resumed",
+    "created_at": "2026-09-20T01:36:40.345543Z"
+  },
+  {
+    "memory_id": "e0b5f831",
+    "run_id": "rply_be07f13e",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "Irreversible step requires supervisor approval",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Supervisor override: customer waiver on file for account [REDACTED]",
+    "resolution_type": "operator_resumed",
+    "created_at": "2026-09-20T01:36:51.453957Z"
+  },
+  {
+    "memory_id": "40d20908",
+    "run_id": "disc_74c0fc54",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T01:45:36.120258Z"
+  },
+  {
+    "memory_id": "64effdd8",
+    "run_id": "disc_74c0fc54",
+    "step": 9,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]/reverse/F001",
+    "trigger_reason": "IRREVERSIBLE action requires approval: REVERSAL COMPLETE",
+    "target_description": "REVERSAL COMPLETE",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T01:45:48.614027Z"
+  },
+  {
+    "memory_id": "f8d3dbf5",
+    "run_id": "disc_74c0fc54",
+    "step": 10,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]/reverse/F001",
+    "trigger_reason": "IRREVERSIBLE action requires approval: REVERSAL COMPLETE",
+    "target_description": "REVERSAL COMPLETE",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T01:46:28.701761Z"
+  },
+  {
+    "memory_id": "fad4dd09",
+    "run_id": "disc_6a744855",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T01:49:34.297500Z"
+  },
+  {
+    "memory_id": "90248eb9",
+    "run_id": "disc_f231085b",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T01:52:24.019125Z"
+  },
+  {
+    "memory_id": "514050e3",
+    "run_id": "disc_517c2995",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-20T03:11:21.154113Z"
+  },
+  {
+    "memory_id": "a30b58b1",
+    "run_id": "rply_ed42a082",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "Irreversible step requires supervisor approval",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Supervisor override: customer waiver on file for account [REDACTED]",
+    "resolution_type": "operator_resumed",
+    "created_at": "2026-09-20T03:12:47.384435Z"
+  },
+  {
+    "memory_id": "4ad62f34",
+    "run_id": "disc_2d981af9",
+    "step": 8,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Reverse Fee",
+    "target_description": "Reverse Fee",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-21T14:16:11.671334Z"
+  },
+  {
+    "memory_id": "d9d098b0",
+    "run_id": "disc_2d981af9",
+    "step": 10,
+    "url_pattern": "http://127.0.0.1:5001/accounts/[REDACTED]/reverse/F002",
+    "trigger_reason": "IRREVERSIBLE action requires approval: Authorize Reversal",
+    "target_description": "Authorize Reversal",
+    "resolution_note": "Auto-approved irreversible action during discovery",
+    "resolution_type": "auto_approved",
+    "created_at": "2026-09-21T14:17:01.082171Z"
+  }
+]

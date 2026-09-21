@@ -46,8 +46,11 @@ def main() -> None:
         print(f"Unknown intervention ID: {choice}", flush=True)
         return
 
+    print("Resolution note / guidance (optional, press Enter for default): ", end="", flush=True)
+    note = input().strip()
+
     for iid in targets:
-        result = wait_for_resume(iid)
+        result = wait_for_resume(iid, resolution_note=note)
         print(f"  Signaled resume for {iid}: {'OK' if result else 'not found (may have timed out)'}", flush=True)
 
     print("\nOperator CLI done. The automation will continue from the next step.", flush=True)

@@ -18,8 +18,11 @@ from typing import Any, Union
 from playwright.sync_api import Page
 
 from artifacts.schema import Capability, Outcome, Step
+from escalation.memory import EscalationMemoryStore
 from guardrails import GuardrailViolation, Risk, check_action
 from replay.locator import LocatorExhaustedError, resolve_target
+
+_MEMORY_STORE = EscalationMemoryStore()
 
 # Recoverable wait: 3 attempts, exponential backoff
 MAX_RETRIES = 3
@@ -150,10 +153,9 @@ def replay(
     Returns one of: Success, BusinessOutcome, Failure
     """
     session_state = session_state or {"reversal_counts": {}}
-    current_url = page.url
-
     for step_idx, step in enumerate(capability.steps):
         step_num = step_idx + 1
+        current_url = page.url
 
         # ---- Guardrail check -------------------------------------------
         target_label = (
@@ -185,6 +187,14 @@ def replay(
         if risk == Risk.IRREVERSIBLE:
             if logger:
                 logger.log("REPLAY_IRREVERSIBLE_STEP", {"step": step_num, "target": target_label})
+                memories = _MEMORY_STORE.find_relevant(url=current_url, target=target_label)
+                if memories:
+                    logger.log("REPLAY_MEMORY_HIT", {
+                        "step": step_num,
+                        "target": target_label,
+                        "memory_ids": [m.memory_id for m in memories],
+                        "resolution_notes": [m.resolution_note for m in memories],
+                    })
             approved = True
             if approval_callback:
                 try:

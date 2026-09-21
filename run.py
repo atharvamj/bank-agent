@@ -9,7 +9,7 @@ Commands:
 
 Examples:
   # Start the mock app first in another terminal:
-  #   python -m flask --app mock_app.app run --port 5000
+  #   python -m flask --app mock_app.app run --host=127.0.0.1 --port 5001
 
   # Pull the target model (first time only):
   #   ollama pull qwen2.5:14b-instruct
@@ -72,7 +72,7 @@ def cmd_discover(args: argparse.Namespace) -> None:
         )
         page = browser.new_page()
 
-        cdp_url = f"http://localhost:{CDP_PORT}"
+        cdp_url = f"http://127.0.0.1:{CDP_PORT}"
         print(f"  Browser CDP URL: {cdp_url}", flush=True)
 
         page.goto(TARGET_URL, wait_until="networkidle")
@@ -101,8 +101,14 @@ def cmd_discover(args: argparse.Namespace) -> None:
     print(f"\n{'='*60}")
     if result.success:
         cap = result.capability
+        
+        import shutil
+        src_path = Path("artifacts/saved") / f"{CAPABILITY_NAME}_v{cap.version}.json"
+        if src_path.exists():
+            shutil.copy(src_path, Path("evidence") / src_path.name)
+
         print(f"  ✅  DISCOVERY SUCCEEDED in {result.steps_taken} steps")
-        print(f"  Capability saved: {CAPABILITY_NAME}_v{cap.version}.json")
+        print(f"  Capability saved: {CAPABILITY_NAME}_v{cap.version}.json (copied to evidence/)")
         print(f"  Evidence log: {logger.log_path}")
     else:
         print(f"  ❌  DISCOVERY FAILED: {result.failure_reason}")
@@ -154,7 +160,7 @@ def cmd_replay(args: argparse.Namespace) -> None:
         except Exception as exc:
             print(f"  [warn] Failed to capture escalation screenshot: {exc}", flush=True)
 
-        cdp_url = f"http://localhost:{CDP_PORT}" if not args.no_cdp else ""
+        cdp_url = f"http://127.0.0.1:{CDP_PORT}" if not args.no_cdp else ""
         resumed = create_intervention(
             reason="Irreversible step requires supervisor approval",
             step=step_num,
@@ -162,6 +168,8 @@ def cmd_replay(args: argparse.Namespace) -> None:
             cdp_url=cdp_url,
             run_id=run_id,
             auto_resume=False,  # genuine pause in replay
+            url=p.url,
+            target_description="Reverse Fee",
         )
         return resumed
 

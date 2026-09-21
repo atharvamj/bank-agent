@@ -26,10 +26,10 @@ class AgentAction(BaseModel):
     One action per response — no multi-step planning.
     """
     action: Literal["click", "type", "wait_for", "assert_text", "done", "escalate"]
-    target_description: str          # human-readable description of what to interact with
-    value: str | None = None         # text to type, text to assert, or null
-    frame: str | None = None         # "account-search" if target is inside iframe, else null
-    reasoning: str                   # why this action moves toward the goal
+    target_description: str | None = ""  # human-readable description of what to interact with
+    value: str | None = None             # text to type, text to assert, or null
+    frame: str | None = None             # "account-search" if target is inside iframe, else null
+    reasoning: str | None = ""           # why this action moves toward the goal
 
 
 class LLMParseError(Exception):

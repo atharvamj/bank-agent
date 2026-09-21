@@ -95,11 +95,12 @@ class Recorder:
         input_schema: dict,
     ) -> Capability:
         """Build and persist the Capability artifact. Returns it."""
+        desc = checkpoint_description or "REVERSAL COMPLETE"
         checkpoint = Target(
             frame=checkpoint_frame,
             primary=LocatorStrategy(
                 strategy="text_near",
-                value=checkpoint_description,
+                value=desc,
             ),
         )
         cap = Capability(

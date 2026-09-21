@@ -79,7 +79,7 @@ async def invoke_capability(name: str, request: InvokeRequest):
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=request.headless)
             page = browser.new_page()
-            page.goto(capability.metadata.get("target_url", "http://localhost:5000"))
+            page.goto(capability.metadata.get("target_url", "http://127.0.0.1:5001"))
             page.wait_for_load_state("networkidle", timeout=15000)
 
             result = replay(
