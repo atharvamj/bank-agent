@@ -4,6 +4,12 @@ Computer-use automation system for legacy banking web UIs. Discovers tasks using
 
 ---
 
+## Why Local LLMs (Ollama)?
+
+This system relies exclusively on local, on-premise LLMs (via Ollama) rather than external APIs like OpenAI or Anthropic. For banking and credit union environments, **data security and privacy** are paramount. Running the model entirely on-premise ensures that sensitive financial data, customer PII, and internal UI structures never leave the institution's secure network. This completely eliminates the compliance, regulatory, and data-leakage risks associated with sending bank data to external third-party API providers.
+
+---
+
 ## Prerequisites
 
 | Requirement | Version |
