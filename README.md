@@ -28,7 +28,7 @@ This system relies exclusively on local, on-premise LLMs (via Ollama) rather tha
 ## Setup
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/atharvamj/bank-agent.git
 cd bank-agent
 
 # Create and activate virtual environment
